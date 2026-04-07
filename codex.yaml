@@ -1,0 +1,132 @@
+rules:
+    - id: typescript_only
+      description: "Use TypeScript exclusively; never write JavaScript files."
+      enforcement: strict
+
+    - id: code_smells
+      description: "Avoid duplication, deep nesting, unused variables, unclear naming."
+      enforcement: strict
+
+    - id: theme_tokens
+      description: "Use only existing shadcn/ui theme tokens defined in global.css."
+      enforcement: strict
+
+    - id: spacing_tokens
+      description: "Use the global spacing tokens (space-2xs, space-xs, space-sm, space-md, space-lg, space-xl, space-2xl, space-3xl) for gaps, padding, and margins instead of arbitrary numeric values."
+      enforcement: strict
+
+    - id: typography_plugin
+      description: "Use tailwindcss-typography (prose classes) for rich text and long-form content instead of custom typography CSS."
+      enforcement: strict
+
+    - id: component_preference
+      description: "Prefer shadcn/ui components; do not create custom UI components unless none exist."
+      enforcement: strict
+
+    - id: radix_customization
+      description: "Always prefer customizing shadcn/ui components using Radix UI props/options instead of TailwindCSS or custom CSS."
+      enforcement: strict
+
+    - id: nextjs_conventions
+      description: "Follow Next.js App Router conventions; prefer Server Components; mark Client Components explicitly."
+      enforcement: strict
+
+    - id: dependencies
+      description: "Do not introduce new dependencies without necessity."
+      enforcement: strict
+
+    - id: project_structure
+      description: "Match existing project structure and naming conventions; separate concerns strictly."
+      enforcement: strict
+
+    - id: constants_directory
+      description: "Store all hardcoded data, constants, enums, and static configuration in the constants/ directory; do not inline them."
+      enforcement: strict
+
+    - id: component_folder_structure
+      description: >
+          Organize the `components/` directory by feature/module:
+          - Each feature gets its own folder (e.g., `components/users/` for user-related components).
+          - Shared/common components go under `components/shared/`.
+          - Do not move or modify the default `components/ui/` folder (shadcn/ui components).
+          - Avoid mixing unrelated components in the same folder.
+      enforcement: strict
+      example_good: |
+          components/
+            ├─ users/
+            │   ├─ UserCard.tsx
+            │   └─ UserList.tsx
+            ├─ products/
+            │   ├─ ProductCard.tsx
+            │   └─ ProductList.tsx
+            ├─ shared/
+            │   ├─ Modal.tsx
+            │   └─ Button.tsx
+            └─ ui/  (keep shadcn/ui default)
+      example_bad: |
+          components/
+            ├─ UserCard.tsx
+            ├─ ProductList.tsx
+            ├─ Modal.tsx
+            └─ Button.tsx
+
+    # UX Rules for codex
+    - id: ux_clarity_first
+      description: "UI must communicate purpose instantly using clear headings, labels, and primary actions."
+      enforcement: strict
+
+    - id: visible_system_status
+      description: "Always show loading, success, and error states so users understand what is happening."
+      enforcement: strict
+
+    - id: error_prevention_over_handling
+      description: "Design to prevent errors via validation, constraints, and defaults rather than reacting after submission."
+      enforcement: strict
+
+    - id: inline_validation
+      description: "Validation feedback must appear inline and immediately, not only on submit."
+      enforcement: strict
+
+    - id: recognition_over_recall
+      description: "Never rely on user memory; make options, actions, and next steps visible."
+      enforcement: strict
+
+    - id: minimal_cognitive_load
+      description: "Reduce mental effort by limiting choices, grouping related fields, and using progressive disclosure."
+      enforcement: strict
+
+    - id: single_primary_action
+      description: "Each screen or form must have one clear primary action; secondary actions must be visually subordinate."
+      enforcement: strict
+
+    - id: accessibility_baseline
+      description: "All interactive elements must be keyboard-accessible and include proper aria attributes."
+      enforcement: strict
+
+    - id: feedback_on_interaction
+      description: "Every user interaction (click, submit, toggle) must produce immediate visual feedback."
+      enforcement: strict
+
+    - id: disable_while_processing
+      description: "Disable inputs and actions during async operations to prevent duplicate or invalid actions."
+      enforcement: strict
+
+    - id: readable_microcopy
+      description: "Helper text and error messages must be concise, human-readable, and action-oriented."
+      enforcement: strict
+
+    - id: consistent_patterns
+      description: "Reuse established layout, interaction, and naming patterns across the product."
+      enforcement: strict
+
+    - id: progressive_disclosure
+      description: "Advanced or optional options must remain hidden until needed."
+      enforcement: strict
+
+    - id: no_silent_failures
+      description: "Failures must never be silent; users must always be informed of what went wrong and why."
+      enforcement: strict
+
+    - id: mobile_first_interaction
+      description: "Design interactions to be usable on small screens before enhancing for larger ones."
+      enforcement: strict
