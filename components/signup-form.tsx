@@ -23,6 +23,7 @@ export function SignUpForm({
   const { register,user } = useAuth();
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -192,17 +193,17 @@ export function SignUpForm({
             <Input
               id="confirmPassword"
               name="confirmPassword"
-              type={showPassword ? "text" : "password"}
+              type={showConfirmPassword ? "text" : "password"}
               autoComplete="current-password"
               required
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? (
+              {showConfirmPassword ? (
                 <EyeOffIcon className="h-4 w-4" aria-hidden="true" />
               ) : (
                 <EyeIcon className="h-4 w-4" aria-hidden="true" />

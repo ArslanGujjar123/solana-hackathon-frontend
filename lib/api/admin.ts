@@ -17,86 +17,6 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   return response.json() as Promise<T>;
 }
-
-export type StudentDashboardResponse = {
-  header: { title: string; subtitle: string };
-  stats: Array<{
-    id: string;
-    label: string;
-    value: string;
-    trend?: { label: string; tone: "positive" | "neutral" };
-    icon: "papers" | "quizzes" | "score";
-  }>;
-  days: string[];
-  charts: Array<{
-    id: string;
-    title: string;
-    subtitle: string;
-    trendLabel: string;
-    linePath: string;
-    areaPath: string;
-    gradientId: string;
-    tone: "chart-1" | "chart-2";
-  }>;
-};
-
-export type StudentHistoryResponse = {
-  header: { title: string; searchPlaceholder: string };
-  table: {
-    columns: string[];
-    showingLabel: string;
-    previousLabel: string;
-    nextLabel: string;
-  };
-  items: Array<{
-    id: string;
-    type: "paper" | "quiz";
-    grade: string;
-    subject: string;
-    questions: number;
-  }>;
-};
-
-export type StudentWalletResponse = {
-  header: { title: string };
-  balance: { label: string; value: string; ctaLabel: string; bannerImageUrl: string };
-  stats: Array<{ id: string; label: string; value: string }>;
-  purchases: Array<{
-    id: string;
-    packageName: string;
-    amountPkr: string;
-    creditsAdded: string;
-    date: string;
-  }>;
-};
-
-export type StudentBuyCreditsResponse = {
-  header: { title: string };
-  info: { title: string; description: string };
-  table: { columns: string[]; actionLabel: string };
-  packages: Array<{
-    id: string;
-    name: string;
-    pricePkr: string;
-    credits: string;
-    expires: string;
-  }>;
-};
-
-export type StudentNotification = {
-  id: string;
-  type: "announcement" | "deadline" | "grade" | "message" | "system";
-  title: string;
-  message: string;
-  fullContent?: string;
-  timestamp: string;
-  isRead: boolean;
-  from?: string;
-};
-
-export type StudentQuizResponse = Record<string, unknown>;
-export type StudentRankPapersResponse = Record<string, unknown>;
-
 export type AdminDashboardResponse = {
   header: { title: string; subtitle: string };
   kpiCards: Array<{ id: string; title: string; value: string; trend: string; icon: string; tone: string; bg: string }>;
@@ -147,17 +67,8 @@ export type AdminUploadDataResponse = {
   };
 };
 
-export const dashboardApi = {
-  getStudentDashboard: () => request<StudentDashboardResponse>("/student/dashboard"),
-  getStudentHistory: () => request<StudentHistoryResponse>("/student/history"),
-  getStudentWallet: () => request<StudentWalletResponse>("/student/wallet"),
-  getStudentBuyCredits: () => request<StudentBuyCreditsResponse>("/student/buy-credits"),
-  getStudentNotifications: () => request<{ notifications: StudentNotification[] }>("/student/notifications"),
-  markNotificationRead: (id: string) => request<{ message: string }>(`/student/notifications/${id}/read`, { method: "POST" }),
-  getStudentQuiz: () => request<StudentQuizResponse>("/student/quiz"),
-  getStudentRankPapers: () => request<StudentRankPapersResponse>("/student/rank-papers"),
-
-  getAdminDashboard: () => request<AdminDashboardResponse>("/admin/dashboard"),
+export const adminApi = {
+    getAdminDashboard: () => request<AdminDashboardResponse>("/admin/dashboard"),
   getAdminUsers: (search?: string) =>
     request<AdminUsersResponse>(`/admin/users${search ? `?search=${encodeURIComponent(search)}` : ""}`),
   setAdminUserStatus: (id: number, disabled: boolean) =>

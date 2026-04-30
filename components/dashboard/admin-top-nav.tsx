@@ -1,4 +1,4 @@
-import { Bell, CreditCard, LogOut, Search, Settings, User } from "lucide-react"
+import { Bell, CreditCard, Link, LogOut, Search, Settings, User } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -68,6 +68,10 @@ export function AdminTopNav() {
               <DropdownMenuItem className="data-[state=active]:bg-foreground/10">
                 <User className="mr-2 h-4 w-4" />
                 <span>View Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="data-[state=active]:bg-foreground/10">
+               <User className="mr-2 h-4 w-4" />
+              <span>My Wallet</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="data-[state=active]:bg-sidebar-foreground/10">
                 <CreditCard className="mr-2 h-4 w-4" />

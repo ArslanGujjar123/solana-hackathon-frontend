@@ -79,9 +79,11 @@ export default function NextQLandingPage() {
             ))}
           </nav>
           <div className="flex items-center gap-[var(--space-sm)]">
-            <Button size="sm">
-              {NEXTQ_ACTIONS.signUpLabel}
+           <Link href="/signup">
+            <Button size="sm" variant="secondary">
+             {NEXTQ_ACTIONS.signUpLabel}
             </Button>
+          </Link>
            <Link href="/login">
             <Button size="sm" variant="secondary">
              {NEXTQ_ACTIONS.loginLabel}

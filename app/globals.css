@@ -81,43 +81,46 @@
   --primary: #243a6d;
   --primary-foreground: #f4f7ff;
 
-  --secondary: #eef2f8;
+  --secondary: #f5f7fb; /* slightly warmer neutral */
   --secondary-foreground: #2c3c60;
 
   --muted: #f0f3f9;
   --muted-foreground: #6b7894;
 
-  --accent: #3c6dd8;
+  --accent: #3c9dff; /* bright sky blue */
   --accent-foreground: #f3f6ff;
+
+  --success: #3bb273; /* new success highlight */
+  --success-foreground: #ffffff;
 
   --destructive: #e15b5b;
 
   /* UI Elements */
   --border: #e2e7f1;
   --input: #e2e7f1;
-  --ring: #3c6dd8;
+  --ring: #3c9dff;
 
   /* Sidebar Specifics */
-  --sidebar: #1f305e;
-  --sidebar-foreground: #ffffff;
+  --sidebar: #243a6d; /* Original deep navy */
+  --sidebar-foreground: #f5f7fb; /* lighter for better contrast */
   --sidebar-primary: #152642;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #2d4270;
+  --sidebar-accent: #3c9dff;
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #152642;
-  --sidebar-ring: #3c6dd8;
+  --sidebar-ring: #3c9dff;
 
-  /* Charts: Blue-forward palette */
-  --chart-1: #3c6dd8;
-  --chart-2: #5a8df0;
-  --chart-3: #8bb1ff;
-  --chart-4: #2b4f99;
-  --chart-5: #6f8dd1;
+  /* Charts: Blue-green palette */
+  --chart-1: #3c9dff; /* sky blue */
+  --chart-2: #5ac8fa; /* aqua */
+  --chart-3: #34c759; /* learning green */
+  --chart-4: #ffcc00; /* attention yellow */
+  --chart-5: #ff6b6b; /* error red */
 }
 
 .dark {
   /* Surfaces: Deep Navy / Indigo */
-  --background: #0c1020;
+  --background: #12172b; /* lighter for less strain */
   --foreground: #eef1ff;
 
   --card: #151b2e;
@@ -126,7 +129,7 @@
   --popover: #141a2c;
   --popover-foreground: #eef1ff;
 
-  /* Brand: Electric Blue + Violet Accent */
+  /* Brand: Electric Blue + Teal Accent */
   --primary: #4d7dff;
   --primary-foreground: #0a0f1f;
 
@@ -136,8 +139,11 @@
   --muted: #1b2237;
   --muted-foreground: #9aa3c7;
 
-  --accent: #6a56ff;
+  --accent: #2dd4bf; /* teal accent */
   --accent-foreground: #f1f0ff;
+
+  --success: #34c759; /* consistent green */
+  --success-foreground: #0a0f1f;
 
   --destructive: #ff5a6b;
 
@@ -156,12 +162,12 @@
   --sidebar-border: #1c2339;
   --sidebar-ring: #4d7dff;
 
-  /* Charts: Blue/Violet scale */
+  /* Charts: Blue/Teal/Green scale */
   --chart-1: #4d7dff;
   --chart-2: #39c0ff;
-  --chart-3: #7a5cff;
-  --chart-4: #59f0ff;
-  --chart-5: #2f6bff;
+  --chart-3: #34c759;
+  --chart-4: #ffcc00;
+  --chart-5: #ff6b6b;
 }
 
 @layer base {

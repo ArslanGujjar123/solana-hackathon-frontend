@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Check, Flag, Paperclip, Sparkles, X } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { QuizQuestion, studentApi } from "@/lib/api/student"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -12,11 +13,10 @@ import {
   QUIZ_BUILDER_HEADER,
   QUIZ_BUILDER_INSTRUCTIONS,
   QUIZ_BUILDER_MESSAGES,
-  QUIZ_INITIAL_ANSWERED_IDS,
   QUIZ_INTERFACE,
   QUIZ_LOADING,
   QUIZ_MAP_LEGEND,
-  QUIZ_QUESTIONS,
+  // QUIZ_QUESTIONS,
   QUIZ_REVIEW,
   QUIZ_REVIEW_ITEMS,
 } from "@/constants/student-quiz"
@@ -26,7 +26,7 @@ type QuizStep = "builder" | "loading" | "quiz" | "review"
 type QuizAnswerMap = Record<string, string>
 
 const MAP_STATUS_CLASSES: Record<"answered" | "current" | "unanswered", string> = {
-  answered: "bg-primary/10 text-primary border border-primary/20",
+  answered: "bg-[#28a745]/10 text-primary border border-primary/20",
   current:
     "bg-accent/20 text-foreground border border-accent/30 ring-2 ring-primary/40",
   unanswered: "bg-muted text-muted-foreground border border-border",
@@ -52,15 +52,51 @@ const REVIEW_OPTION_TEXT: Record<
 
 export function QuizFlow() {
   const [step, setStep] = useState<QuizStep>("builder")
-  const [currentIndex, setCurrentIndex] = useState(4)
+  const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<QuizAnswerMap>({})
+  const [quizPrompt, setQuizPrompt] = useState("Generate 10 MCQs on Physics.")
+  const [quizQuestions, setQuestions] = useState<QuizQuestion[]>([])
+  const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const currentQuestion = QUIZ_QUESTIONS[currentIndex]
-  const totalQuestions = QUIZ_QUESTIONS.length
+  const currentQuestion = quizQuestions[currentIndex] || null
+  const totalQuestions = quizQuestions.length
   const currentNumber = currentIndex + 1
 
+  const fetchQuiz = async () => {
+    const query = quizPrompt.trim()
+    if (!query) {
+      setErrorMessage("Please enter a quiz prompt first.")
+      return
+    }
+
+    setErrorMessage(null)
+    setLoading(true)
+    setStep("loading")
+    try {
+      const questions = await studentApi.createStudentQuiz(query)
+      if (questions.length === 0) {
+        setStep("builder")
+        setErrorMessage("No quiz questions were returned. Try a more specific prompt.")
+        return
+      }
+
+      setQuestions(questions)
+      setCurrentIndex(0)
+      setAnswers({})
+      setStep("quiz")
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to generate quiz."
+      setStep("builder")
+      setErrorMessage(message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const answeredIds = useMemo(() => {
-    const answered = new Set(QUIZ_INITIAL_ANSWERED_IDS)
+    const answered = new Set<number>()
     Object.keys(answers).forEach((id) => {
       const numericId = Number(id)
       if (!Number.isNaN(numericId)) {
@@ -69,22 +105,6 @@ export function QuizFlow() {
     })
     return answered
   }, [answers])
-
-  useEffect(() => {
-    if (step !== "loading") {
-      return
-    }
-
-    const timer = setTimeout(() => {
-      setStep("quiz")
-    }, 1400)
-
-    return () => clearTimeout(timer)
-  }, [step])
-
-  const handleSend = () => {
-    setStep("loading")
-  }
 
   const handleOptionSelect = (optionId: string) => {
     setAnswers((prev) => ({ ...prev, [String(currentNumber)]: optionId }))
@@ -107,7 +127,7 @@ export function QuizFlow() {
     setCurrentIndex((prev) => Math.max(prev - 1, 0))
   }
 
-  if (step === "loading") {
+  if (loading) {
     return (
       <div className="flex flex-col gap-[var(--space-lg)]">
         <section className="rounded-2xl border border-border bg-card p-[var(--space-xl)] shadow-sm">
@@ -417,17 +437,33 @@ export function QuizFlow() {
         <div className="mt-[var(--space-md)] flex items-center gap-[var(--space-sm)] border-t border-border pt-[var(--space-md)]">
           <div className="flex w-full items-center gap-[var(--space-sm)] rounded-xl border border-border bg-card px-[var(--space-md)] py-[var(--space-sm)] focus-within:ring-2 focus-within:ring-ring/30">
             <Input
+              value={quizPrompt}
+              onChange={(event) => {
+                setQuizPrompt(event.target.value)
+                if (errorMessage) {
+                  setErrorMessage(null)
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  fetchQuiz()
+                }
+              }}
               placeholder={QUIZ_BUILDER_CHAT.inputPlaceholder}
               className="h-10 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
             />
             <Button variant="ghost" size="icon" className="text-primary">
               <Paperclip className="size-5" />
             </Button>
-            <Button className="px-[var(--space-lg)]" onClick={handleSend}>
+            <Button className="px-[var(--space-lg)]" onClick={fetchQuiz} disabled={loading}>
               {QUIZ_BUILDER_CHAT.sendLabel}
             </Button>
           </div>
         </div>
+        {errorMessage ? (
+          <p className="text-sm text-destructive">{errorMessage}</p>
+        ) : null}
       </section>
     </div>
   )
