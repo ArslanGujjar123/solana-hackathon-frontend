@@ -36,16 +36,28 @@ const studentNavItems = [
     tooltip: "Go to your main student dashboard",
   },
   {
-    title: "Rank Paper",
-    url: "/dashboard/student/rank-papers",
+    title: "Verified Rank Paper",
+    url: "/dashboard/student/rank-papers-verified",
     icon: FolderKanban,
     tooltip: "View and manage your FYP project details",
   },
   {
-    title: "Quiz",
+    title: "Verified Quiz",
     url: "/dashboard/student/quiz",
     icon: Flag,
     tooltip: "Track sprint tasks, deadlines, and progress",
+  },
+  {
+    title: "Upload Paper",
+    url: "/dashboard/student/upload-paper-unverified",
+    icon: FolderKanban,
+    tooltip: "View and manage your FYP project details",
+  },
+  {
+    title: "Unverified Rank Paper",
+    url: "/dashboard/student/rank-papers-unverified",
+    icon: FolderKanban,
+    tooltip: "View and manage your FYP project details",
   },
   {
     title: "History",

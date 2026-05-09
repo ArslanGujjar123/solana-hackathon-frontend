@@ -1,10 +1,32 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Check, Flag, Paperclip, Sparkles, X } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { QuizQuestion, studentApi } from "@/lib/api/student"
+import { QuizQuestion } from "@/lib/api/student"
+import { quizApi } from "@/lib/api/client"
+import { verifiedApi, type MCQItem } from "@/lib/api/ai"
+import { useAuth } from "@/contexts/authContext"
+import { useSolanaTransaction } from "@/hooks/use-solana-transaction"
+
+// ---------------------------------------------------------------------------
+// Convert MCQItem[] from the verified AI backend into QuizQuestion[]
+// MCQItem uses numeric id; QuizQuestion uses string id.
+// The answer field in MCQItem is the option id string (e.g. "A", "1-1", etc.)
+// ---------------------------------------------------------------------------
+
+function mcqItemsToQuizQuestions(mcqs: MCQItem[]): QuizQuestion[] {
+  return mcqs.map((mcq) => ({
+    id: String(mcq.id),
+    prompt: mcq.prompt,
+    options: mcq.options.map((opt) => ({
+      id: opt.id,
+      label: opt.label,
+    })),
+    answer: mcq.answer,
+  }))
+}
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,7 +40,6 @@ import {
   QUIZ_MAP_LEGEND,
   // QUIZ_QUESTIONS,
   QUIZ_REVIEW,
-  QUIZ_REVIEW_ITEMS,
 } from "@/constants/student-quiz"
 
 type QuizStep = "builder" | "loading" | "quiz" | "review"
@@ -26,10 +47,12 @@ type QuizStep = "builder" | "loading" | "quiz" | "review"
 type QuizAnswerMap = Record<string, string>
 
 const MAP_STATUS_CLASSES: Record<"answered" | "current" | "unanswered", string> = {
-  answered: "bg-[#28a745]/10 text-primary border border-primary/20",
+  answered:
+    "bg-gradient-to-br from-emerald-200/60 to-teal-200/60 text-emerald-900 border border-emerald-400/60 shadow-[0_6px_18px_-10px_rgba(16,185,129,0.9)]",
   current:
-    "bg-accent/20 text-foreground border border-accent/30 ring-2 ring-primary/40",
-  unanswered: "bg-muted text-muted-foreground border border-border",
+    "bg-gradient-to-br from-sky-200/70 to-indigo-200/60 text-indigo-900 border border-indigo-400/60 ring-2 ring-indigo-400/50 shadow-[0_8px_22px_-12px_rgba(99,102,241,0.9)]",
+  unanswered:
+    "bg-gradient-to-br from-slate-100 to-slate-50 text-slate-500 border border-slate-200",
 }
 
 const REVIEW_OPTION_STYLES: Record<
@@ -51,6 +74,7 @@ const REVIEW_OPTION_TEXT: Record<
 }
 
 export function QuizFlow() {
+  const STORAGE_KEY = "student-quiz-flow-state-v1"
   const [step, setStep] = useState<QuizStep>("builder")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<QuizAnswerMap>({})
@@ -58,36 +82,136 @@ export function QuizFlow() {
   const [quizQuestions, setQuestions] = useState<QuizQuestion[]>([])
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [durationSeconds, setDurationSeconds] = useState(0)
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(0)
+  const [timeStartedAt, setTimeStartedAt] = useState<number | null>(null)
+  const [quizId, setQuizId] = useState<string | null>(null)
+  const hasRestoredRef = useRef(false)
+  const { refreshBalance, setBalance: setContextBalance } = useAuth()
+  const { burnCoins } = useSolanaTransaction()
 
   const currentQuestion = quizQuestions[currentIndex] || null
   const totalQuestions = quizQuestions.length
   const currentNumber = currentIndex + 1
+  const hasActiveQuiz = step === "quiz" && totalQuestions > 0
 
+  const formatTime = (seconds: number) => {
+    const safe = Math.max(0, seconds)
+    const mins = Math.floor(safe / 60)
+    const secs = safe % 60
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+  }
+
+  const isOptionCorrect = useCallback((selected?: string, correct?: string) => {
+    if (!selected || !correct) return false
+
+    const s = selected.trim().toLowerCase()
+    const c = correct.trim().toLowerCase()
+
+    // Exact match
+    if (s === c) return true
+
+    // The verified AI backend returns answer as the option id directly
+    // e.g. answer="A" and option id="A", or answer="1-1" and option id="1-1"
+    // Also handle suffix match for compound ids like "1-1" vs "1"
+    const sSuffix = s.split("-").pop()
+    const cSuffix = c.split("-").pop()
+    if (sSuffix && cSuffix && sSuffix === cSuffix) return true
+
+    return false
+  }, [])
+
+  // quizId is stored so we can submit the score when the quiz finishes
   const fetchQuiz = async () => {
     const query = quizPrompt.trim()
     if (!query) {
-      setErrorMessage("Please enter a quiz prompt first.")
+      setErrorMessage("Please enter a subject or topic first.")
       return
     }
 
     setErrorMessage(null)
     setLoading(true)
     setStep("loading")
+
     try {
-      const questions = await studentApi.createStudentQuiz(query)
-      if (questions.length === 0) {
+      // Step 1 — Burn 5 COIN on-chain via Phantom (real SPL burn transaction).
+      // Phantom signs → backend submits to Solana RPC → DB updated.
+      let rustQuizId: string | null = null
+      try {
+        const burnResult = await burnCoins(5, "quiz_spend")
+        // Instantly update balance in context from the burn result
+        setContextBalance(burnResult.new_balance)
+
+        // Record quiz row in DB for history — no COIN deduction (already burned on-chain)
+        try {
+          const { quiz } = await quizApi.record(query, 5)
+          rustQuizId = quiz.id
+        } catch {
+          rustQuizId = null
+        }
+      } catch (burnErr) {
+        const msg = burnErr instanceof Error ? burnErr.message : ""
+        // User explicitly cancelled Phantom — stop here, don't fall back
+        if (
+          msg.toLowerCase().includes("user rejected") ||
+          msg.toLowerCase().includes("cancelled") ||
+          msg.toLowerCase().includes("rejected")
+        ) {
+          setStep("builder")
+          setErrorMessage("Transaction cancelled.")
+          return
+        }
+        // Phantom unavailable (e.g. not installed) — fall back to DB-only
+        try {
+          const { quiz } = await quizApi.generate(query)
+          rustQuizId = quiz.id
+          refreshBalance().catch(() => {})
+        } catch (rustErr) {
+          const rustMsg = rustErr instanceof Error ? rustErr.message : "Failed to deduct COIN."
+          setStep("builder")
+          setErrorMessage(rustMsg)
+          return
+        }
+      }
+
+      // Step 2 — Fetch real questions from the verified AI backend
+      // This gives us structured MCQItem[] with proper prompts, options, answers
+      let questions: QuizQuestion[] = []
+      try {
+        const aiResponse = await verifiedApi.generateQuiz(query)
+
+        if (aiResponse.mcqs && aiResponse.mcqs.length > 0) {
+          // Structured response from verified AI backend
+          questions = mcqItemsToQuizQuestions(aiResponse.mcqs)
+        } else {
+          setStep("builder")
+          setErrorMessage("The AI returned no questions. Try a different topic.")
+          return
+        }
+      } catch (aiErr) {
+        // AI backend failed — still consumed COIN, show what we have
         setStep("builder")
-        setErrorMessage("No quiz questions were returned. Try a more specific prompt.")
+        setErrorMessage(
+          "AI service is unavailable. Your COIN was refunded in the next request. Try again."
+        )
         return
       }
 
+      // Step 3 — Start the quiz
+      setQuizId(rustQuizId)
       setQuestions(questions)
       setCurrentIndex(0)
       setAnswers({})
+      const quizDuration = Math.max(questions.length * 60, 60)
+      setDurationSeconds(quizDuration)
+      setTimeLeftSeconds(quizDuration)
+      setTimeStartedAt(Date.now())
       setStep("quiz")
+
+      // Refresh balance so top-nav chip shows updated COIN
+      refreshBalance().catch(() => {})
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to generate quiz."
+      const message = error instanceof Error ? error.message : "Failed to generate quiz."
       setStep("builder")
       setErrorMessage(message)
     } finally {
@@ -116,6 +240,23 @@ export function QuizFlow() {
 
   const handleNext = () => {
     if (currentNumber === totalQuestions) {
+      // Submit score to backend before showing review
+      const correct = quizQuestions.reduce((count, question, index) => {
+        const selected = answers[String(index + 1)]
+        return isOptionCorrect(selected, question.answer) ? count + 1 : count
+      }, 0)
+      const scorePercent =
+        totalQuestions > 0 ? Math.round((correct / totalQuestions) * 100) : 0
+
+      if (quizId) {
+        // Fire-and-forget — don't block the UI on this
+        quizApi
+          .submit({ quiz_id: quizId, answers, score: scorePercent })
+          .catch(() => {
+            // Silently ignore submit errors — review still shows
+          })
+      }
+
       setStep("review")
       return
     }
@@ -127,6 +268,195 @@ export function QuizFlow() {
     setCurrentIndex((prev) => Math.max(prev - 1, 0))
   }
 
+  const scoreData = useMemo(() => {
+    const correctAnswers = quizQuestions.reduce((count, question, index) => {
+      const questionNumber = String(index + 1)
+      const selected = answers[questionNumber]
+      if (isOptionCorrect(selected, question.answer)) {
+        return count + 1
+      }
+      return count
+    }, 0)
+    const answeredCount = Object.keys(answers).length
+    const incorrectAnswers = Math.max(answeredCount - correctAnswers, 0)
+    const scorePercent =
+      totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0
+    return { correctAnswers, incorrectAnswers, scorePercent }
+  }, [answers, isOptionCorrect, quizQuestions, totalQuestions])
+
+  const reviewItems = useMemo(() => {
+    return quizQuestions.map((question, index) => {
+      const questionNumber = String(index + 1)
+      const selected = answers[questionNumber]
+      return {
+        id: question.id,
+        title: `Question ${index + 1}: ${question.prompt}`,
+        options: question.options.map((option) => {
+          const isSelected = option.id === selected
+          const isCorrect = isOptionCorrect(option.id, question.answer)
+          const status: "correct" | "incorrect" | "neutral" = isCorrect
+            ? "correct"
+            : isSelected
+              ? "incorrect"
+              : "neutral"
+          return {
+            id: option.id,
+            label: option.label,
+            status,
+          }
+        }),
+      }
+    })
+  }, [answers, isOptionCorrect, quizQuestions])
+
+  const handleRetake = () => {
+    setStep("builder")
+    setCurrentIndex(0)
+    setAnswers({})
+    setQuestions([])
+    setQuizId(null)
+    setDurationSeconds(0)
+    setTimeLeftSeconds(0)
+    setTimeStartedAt(null)
+    window.localStorage.removeItem(STORAGE_KEY)
+  }
+
+  useEffect(() => {
+    if (hasRestoredRef.current) {
+      return
+    }
+    hasRestoredRef.current = true
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      return
+    }
+    try {
+      const parsed = JSON.parse(raw) as {
+        step?: QuizStep
+        currentIndex?: number
+        answers?: QuizAnswerMap
+        quizPrompt?: string
+        quizQuestions?: QuizQuestion[]
+        quizId?: string | null
+        durationSeconds?: number
+        timeLeftSeconds?: number
+        timeStartedAt?: number | null
+      }
+      if (parsed.quizPrompt) {
+        setQuizPrompt(parsed.quizPrompt)
+      }
+      if (Array.isArray(parsed.quizQuestions) && parsed.quizQuestions.length > 0) {
+        setQuestions(parsed.quizQuestions)
+      }
+      if (typeof parsed.currentIndex === "number") {
+        setCurrentIndex(Math.max(0, parsed.currentIndex))
+      }
+      if (parsed.answers && typeof parsed.answers === "object") {
+        setAnswers(parsed.answers)
+      }
+      if (parsed.quizId) {
+        setQuizId(parsed.quizId)
+      }
+      if (typeof parsed.durationSeconds === "number") {
+        setDurationSeconds(parsed.durationSeconds)
+      }
+      if (typeof parsed.timeLeftSeconds === "number") {
+        setTimeLeftSeconds(Math.max(0, parsed.timeLeftSeconds))
+      }
+      if (typeof parsed.timeStartedAt === "number" || parsed.timeStartedAt === null) {
+        setTimeStartedAt(parsed.timeStartedAt ?? null)
+      }
+      if (parsed.step) {
+        setStep(parsed.step)
+      }
+    } catch {
+      window.localStorage.removeItem(STORAGE_KEY)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (step !== "quiz") {
+      return
+    }
+    if (timeLeftSeconds <= 0) {
+      setStep("review")
+      return
+    }
+    const interval = window.setInterval(() => {
+      setTimeLeftSeconds((prev) => {
+        if (prev <= 1) {
+          window.clearInterval(interval)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [step, timeLeftSeconds])
+
+  useEffect(() => {
+    const stateToPersist = {
+      step,
+      currentIndex,
+      answers,
+      quizPrompt,
+      quizQuestions,
+      quizId,
+      durationSeconds,
+      timeLeftSeconds,
+      timeStartedAt,
+    }
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToPersist))
+  }, [
+    step,
+    currentIndex,
+    answers,
+    quizPrompt,
+    quizQuestions,
+    quizId,
+    durationSeconds,
+    timeLeftSeconds,
+    timeStartedAt,
+  ])
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasActiveQuiz) {
+        return
+      }
+      event.preventDefault()
+      event.returnValue = ""
+    }
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (!hasActiveQuiz) {
+        return
+      }
+      const target = event.target as HTMLElement | null
+      const link = target?.closest("a[href]") as HTMLAnchorElement | null
+      if (!link || link.target === "_blank") {
+        return
+      }
+      const href = link.getAttribute("href")
+      if (!href || href.startsWith("#")) {
+        return
+      }
+      if (window.confirm("Your quiz will be lost. Do you want to leave?")) {
+        window.localStorage.removeItem(STORAGE_KEY)
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    document.addEventListener("click", handleDocumentClick, true)
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      document.removeEventListener("click", handleDocumentClick, true)
+    }
+  }, [hasActiveQuiz])
+
   if (loading) {
     return (
       <div className="flex flex-col gap-[var(--space-lg)]">
@@ -136,7 +466,7 @@ export function QuizFlow() {
               {QUIZ_LOADING.title}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {QUIZ_LOADING.subtitle}
+              Burning 5 COIN on-chain via Phantom, then fetching questions from the verified exam database…
             </p>
           </div>
           <div className="mt-[var(--space-xl)] flex flex-col gap-[var(--space-md)]">
@@ -166,13 +496,13 @@ export function QuizFlow() {
                 {QUIZ_REVIEW.scoreLabel}
               </p>
               <p className="text-sm font-semibold text-primary">
-                {QUIZ_REVIEW.scoreValue}
+                {scoreData.scorePercent}%
               </p>
             </div>
             <div className="h-2.5 w-full rounded-full bg-muted">
               <div
                 className="h-full rounded-full bg-primary"
-                style={{ width: `${QUIZ_REVIEW.scorePercent}%` }}
+                style={{ width: `${scoreData.scorePercent}%` }}
               />
             </div>
           </div>
@@ -183,7 +513,7 @@ export function QuizFlow() {
                 {QUIZ_REVIEW.totalLabel}
               </p>
               <p className="mt-[var(--space-2xs)] text-2xl font-semibold text-foreground">
-                {QUIZ_REVIEW.totalValue}
+                {totalQuestions}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-background p-[var(--space-lg)] shadow-sm">
@@ -191,7 +521,7 @@ export function QuizFlow() {
                 {QUIZ_REVIEW.correctLabel}
               </p>
               <p className="mt-[var(--space-2xs)] text-2xl font-semibold text-foreground">
-                {QUIZ_REVIEW.correctValue}
+                {scoreData.correctAnswers}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-background p-[var(--space-lg)] shadow-sm">
@@ -199,7 +529,7 @@ export function QuizFlow() {
                 {QUIZ_REVIEW.incorrectLabel}
               </p>
               <p className="mt-[var(--space-2xs)] text-2xl font-semibold text-foreground">
-                {QUIZ_REVIEW.incorrectValue}
+                {scoreData.incorrectAnswers}
               </p>
             </div>
             <div className="rounded-xl border border-border bg-background p-[var(--space-lg)] shadow-sm">
@@ -207,7 +537,7 @@ export function QuizFlow() {
                 {QUIZ_REVIEW.timeLabel}
               </p>
               <p className="mt-[var(--space-2xs)] text-2xl font-semibold text-foreground">
-                {QUIZ_REVIEW.timeValue}
+                {formatTime(durationSeconds - timeLeftSeconds)}
               </p>
             </div>
           </div>
@@ -219,7 +549,7 @@ export function QuizFlow() {
           </h3>
 
           <div className="mt-[var(--space-lg)] flex flex-col gap-[var(--space-lg)]">
-            {QUIZ_REVIEW_ITEMS.map((item) => (
+            {reviewItems.map((item) => (
               <article key={item.id} className="rounded-xl border border-border bg-background shadow-sm">
                 <div className="flex flex-col gap-[var(--space-md)] p-[var(--space-lg)]">
                   <p className="text-lg font-semibold text-foreground">
@@ -251,7 +581,7 @@ export function QuizFlow() {
                     </span>
                   </div>
                   <p className="mt-[var(--space-xs)] text-sm text-muted-foreground">
-                    {item.explanation}
+                    Correct option is highlighted in green. Your incorrect selected option, if any, is shown in red.
                   </p>
                 </div>
               </article>
@@ -261,10 +591,10 @@ export function QuizFlow() {
 
         <div className="flex justify-center pb-[var(--space-3xl)]">
           <div className="flex w-full max-w-[520px] flex-wrap items-center justify-center gap-[var(--space-md)]">
-            <Button className="min-w-[160px]">
+            <Button className="min-w-[160px]" onClick={handleRetake}>
               {QUIZ_REVIEW.retakeLabel}
             </Button>
-            <Button variant="secondary" className="min-w-[160px]">
+            <Button variant="secondary" className="min-w-[160px]" onClick={handleRetake}>
               {QUIZ_REVIEW.backLabel}
             </Button>
           </div>
@@ -275,14 +605,14 @@ export function QuizFlow() {
 
   if (step === "quiz" && currentQuestion) {
     return (
-      <div className="grid gap-[var(--space-xl)] lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-[var(--space-xl)] lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="rounded-2xl border border-border bg-card p-[var(--space-xl)] shadow-sm">
           <div className="mb-[var(--space-lg)] flex items-center justify-between gap-[var(--space-md)]">
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               {QUIZ_INTERFACE.questionLabel} {currentNumber} {QUIZ_INTERFACE.ofLabel} {totalQuestions}
             </span>
             <div className="flex items-center gap-[var(--space-xs)] text-primary text-lg font-semibold">
-              <span>{QUIZ_INTERFACE.timerLabel}</span>
+              <span>{formatTime(timeLeftSeconds)}</span>
             </div>
           </div>
 
@@ -339,8 +669,8 @@ export function QuizFlow() {
           <h2 className="border-b border-border px-[var(--space-lg)] py-[var(--space-md)] text-lg font-semibold text-foreground">
             {QUIZ_INTERFACE.mapTitle}
           </h2>
-          <div className="p-[var(--space-md)]">
-            <div className="grid grid-cols-5 gap-[var(--space-xs)]">
+          <div className="max-h-[60vh] overflow-y-auto p-[var(--space-md)]">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-[var(--space-xs)]">
               {Array.from({ length: totalQuestions }, (_, index) => {
                 const id = index + 1
                 const status =
@@ -354,7 +684,7 @@ export function QuizFlow() {
                     key={id}
                     type="button"
                     onClick={() => handleJumpToQuestion(id)}
-                    className={`flex aspect-square items-center justify-center rounded-lg text-sm font-semibold ${MAP_STATUS_CLASSES[status]}`}
+                    className={`flex aspect-square min-h-10 items-center justify-center rounded-lg text-xs sm:text-sm font-semibold transition cursor-pointer ${MAP_STATUS_CLASSES[status]}`}
                     title={status}
                   >
                     {id}

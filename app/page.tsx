@@ -197,13 +197,13 @@ export default function NextQLandingPage() {
                     plan.isPopular ? "border-primary shadow-md" : "border-border"
                   }`}
                 >
-                  <div className="flex flex-col gap-[var(--space-2xs)]">
+                  <div className="flex flex-col gap-[var(--space-3xs)]">
                     {plan.isPopular ? (
                       <Badge className="w-fit bg-primary text-primary-foreground">
                         {NEXTQ_SECTION_LABELS.popularBadge}
                       </Badge>
                     ) : null}
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
                       {plan.name}
                     </p>
                     <div className="flex items-baseline gap-[var(--space-2xs)]">
@@ -212,10 +212,12 @@ export default function NextQLandingPage() {
                         <span className="text-sm text-muted-foreground">{plan.period}</span>
                       ) : null}
                     </div>
-                  </div>
-                  <Button variant={plan.isPopular ? "default" : "secondary"}>
+                  </div>    
+                  <Link href="/login">
+                    <Button variant={plan.isPopular ? "default" : "secondary"}>
                     {plan.ctaLabel}
-                  </Button>
+                   </Button>
+                 </Link>
                   <ul className="flex flex-col gap-[var(--space-sm)] text-sm text-muted-foreground">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-start gap-[var(--space-sm)]">
@@ -250,7 +252,7 @@ export default function NextQLandingPage() {
                     </div>
                   </div>
                   <TestimonialRating rating={testimonial.rating} />
-                  <p className="text-sm italic text-muted-foreground">"{testimonial.quote}"</p>
+                  <p className="text-sm italic text-muted-foreground">&ldquo;{testimonial.quote}&rdquo;</p>
                 </article>
               ))}
             </div>
@@ -284,7 +286,7 @@ export default function NextQLandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border bg-background py-[var(--space-3xl)]">
+      <footer className="border-t border-border bg-background py-[var(--space-2xl)]">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-[var(--space-xl)] px-[var(--space-xl)] md:px-[var(--space-2xl)]">
           <div className="flex flex-wrap justify-center gap-[var(--space-lg)] text-sm text-muted-foreground">
             {NEXTQ_FOOTER_LINKS.map((link) => (
@@ -300,6 +302,10 @@ export default function NextQLandingPage() {
               </Link>
             ))}
           </div>
+          <p className="text-sm text-muted-foreground">Developed By</p>
+          <p className="text-sm text-muted-foreground">Muhammad Arslan - Software Engineer</p>
+          <p className="text-sm text-muted-foreground">Ekrash Zahid - AI Engineer</p>
+          <p className="text-sm text-muted-foreground">University Of Management and Technology, Lahore</p>
           <p className="text-xs text-muted-foreground">{NEXTQ_COPYRIGHT}</p>
         </div>
       </footer>

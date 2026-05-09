@@ -6,18 +6,29 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
 
 /**
- * Get authentication token from localStorage
+ * Get authentication token from localStorage.
+ * Supports both the new key ("nextq_jwt") and the legacy key ("access_token").
  */
 const getAuthToken = (): string | null => {
-  return localStorage.getItem("access_token");
+  return (
+    localStorage.getItem("nextq_jwt") ||
+    localStorage.getItem("access_token") ||
+    null
+  );
 };
 
 /**
- * Get user data from localStorage
+ * Get user data from localStorage.
+ * Returns null gracefully — the new auth flow stores user data in React context,
+ * not localStorage, so this is a no-op stub for legacy components.
  */
 export const getStoredUser = () => {
-  const userStr = localStorage.getItem("user");
-  return userStr ? JSON.parse(userStr) : null;
+  try {
+    const userStr = localStorage.getItem("user");
+    return userStr ? JSON.parse(userStr) : null;
+  } catch {
+    return null;
+  }
 };
 
 /**

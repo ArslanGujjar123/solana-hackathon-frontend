@@ -102,6 +102,7 @@ export type QuizQuestion = {
   id: string
   prompt: string
   options: QuizOption[]
+  answer?: string
 };
 export type StudentRankPapersResponse = Record<string, unknown>;
 
@@ -142,12 +143,12 @@ const normalizeQuizQuestions = (raw: unknown): QuizQuestion[] => {
     return [];
   }
 
-  return raw
-    .map((item, questionIndex) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
+  const normalized: QuizQuestion[] = [];
 
+  raw.forEach((item, questionIndex) => {
+      if (!item || typeof item !== "object") {
+        return;
+      }
       const row = item as Record<string, unknown>;
       const prompt = String(
         row.prompt ?? row.question ?? row.title ?? row.text ?? ""
@@ -204,16 +205,21 @@ const normalizeQuizQuestions = (raw: unknown): QuizQuestion[] => {
         .filter((option): option is QuizOption => Boolean(option));
 
       if (!prompt || options.length === 0) {
-        return null;
+        return;
       }
 
-      return {
+      normalized.push({
         id: String(row.id ?? row.question_id ?? questionIndex + 1),
         prompt,
         options,
-      };
-    })
-    .filter((question): question is QuizQuestion => Boolean(question));
+        answer:
+          typeof row.answer === "string" && row.answer.trim()
+            ? row.answer.trim()
+            : undefined,
+      });
+    });
+
+  return normalized;
 };
 
 const parseQuizQuestionsFromPayload = (payload: QuizPayloadShape): QuizQuestion[] => {

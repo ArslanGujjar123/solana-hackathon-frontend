@@ -37,17 +37,15 @@ export default function SignUpPage() {
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm space-y-3 rounded-xl border bg-background p-6 shadow-sm">
             <SignUpForm />
-            <div className="space-y-2">
-              <p className="text-center text-xs text-muted-foreground">
-                Already have an account?{" "}
-                <Link
-                  href="/login"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Log in
-                </Link>
-              </p>
-            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Log in
+              </Link>
+            </p>
           </div>
         </div>
       </section>

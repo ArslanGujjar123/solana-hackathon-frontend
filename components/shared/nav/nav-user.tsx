@@ -1,18 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import {
   BadgeCheck,
   ChevronsUpDown,
   LogOut,
+  Wallet,
 } from "lucide-react"
 
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage,
 } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -29,8 +27,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { logoutUser, getStoredUser } from "@/lib/profile-api"
-import {useAuth} from "@/contexts/authContext"
+import { useAuth } from "@/contexts/authContext"
 
 export function NavUser({
   user,
@@ -42,60 +39,16 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const router = useRouter()
-  const { logout } = useAuth()
-  const [userData, setUserData] = useState(user)
-  const [initials, setInitials] = useState("CN")
-  const [mounted, setMounted] = useState(false)
+  const { walletAddress, logout } = useAuth()
 
-  useEffect(() => {
-    setMounted(true)
-    // Get user data from localStorage using API service
-    const storedUser = getStoredUser()
-    if (storedUser) {
-      setUserData({
-        name: `${storedUser.first_name} ${storedUser.last_name}`.trim() || storedUser.username,
-        email: storedUser.email,
-        avatar: storedUser.profile_image_url || user.avatar,
-      })
-      
-      // Generate initials from first and last name
-      const firstName = storedUser.first_name || ""
-      const lastName = storedUser.last_name || ""
-      const userInitials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || storedUser.username.charAt(0).toUpperCase()
-      setInitials(userInitials)
-    }
-  }, [])
+  // Derive display values from wallet address (new auth model)
+  const shortAddress = walletAddress
+    ? `${walletAddress.slice(0, 4)}…${walletAddress.slice(-4)}`
+    : user.name
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Logout error:", error)
-    }
-    
-    // Redirect to login page
-    router.replace("/login")
-  }
-
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
-    return (
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton size="lg">
-            <Avatar className="h-8 w-8 rounded-lg">
-              <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">CN</AvatarFallback>
-            </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{user.name}</span>
-              <span className="truncate text-xs opacity-80">{user.email}</span>
-            </div>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    )
-  }
+  const initials = walletAddress
+    ? walletAddress.slice(0, 2).toUpperCase()
+    : "CN"
 
   return (
     <SidebarMenu>
@@ -107,16 +60,22 @@ export function NavUser({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={userData.avatar} alt={userData.name} />
-                <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{userData.name}</span>
-                <span className="truncate text-xs opacity-80">{userData.email}</span>
+                <span className="truncate font-medium font-mono text-xs">
+                  {shortAddress}
+                </span>
+                <span className="truncate text-xs opacity-80">
+                  {walletAddress ? "Phantom Wallet" : "Not connected"}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
@@ -126,28 +85,35 @@ export function NavUser({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={userData.avatar} alt={userData.name} />
                   <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{userData.name}</span>
-                  <span className="truncate text-xs">{userData.email}</span>
+                  <span className="truncate font-mono text-xs font-medium">
+                    {walletAddress ?? "—"}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    Phantom Wallet
+                  </span>
                 </div>
               </div>
             </DropdownMenuLabel>
+
             <DropdownMenuSeparator />
+
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/student/profile">
-                  <BadgeCheck />
-                  Profile
+                <Link href="/dashboard/student/my-wallet">
+                  <Wallet className="mr-2 size-4" />
+                  My Wallet
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut />
-              Log out
+
+            <DropdownMenuItem onClick={() => logout()}>
+              <LogOut className="mr-2 size-4" />
+              Disconnect &amp; Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -155,4 +121,3 @@ export function NavUser({
     </SidebarMenu>
   )
 }
-

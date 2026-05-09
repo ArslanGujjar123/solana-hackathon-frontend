@@ -1,7 +1,6 @@
 import type { ReactNode } from "react"
 import { cookies } from "next/headers"
 
-import { DashboardTopNav } from "@/components/dashboard/top-nav"
 import { AdminTopNav } from "@/components/dashboard/admin-top-nav"
 import { StudentSidebar } from "@/components/shared/sidebar/student-sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -49,7 +48,7 @@ export default async function StudentDashboardLayout({
           </div>
           <AdminTopNav />
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
+        <div className="flex flex-1 flex-col gap-4 overflow-x-hidden p-4 pt-0">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   )

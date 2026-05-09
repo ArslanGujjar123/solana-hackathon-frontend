@@ -37,31 +37,18 @@ export default function LoginPage() {
         {/* Form */}
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-sm space-y-3 rounded-xl border bg-background p-6 shadow-sm">
-            <Suspense fallback={<div>Loading...</div>}>
+            <Suspense fallback={<div>Loading…</div>}>
               <LoginForm />
-           </Suspense>
-            <div className="space-y-2">
-              <p className="text-center text-xs text-muted-foreground">
-                Don't have an account?{" "}
-                <Link
-                  href="/signup"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Sign up
-                </Link>
-              </p>
-              <p className="text-center text-xs text-muted-foreground">
-                Are you an administrator?{" "}
-                <a
-                  href="http://127.0.0.1:8000/admin/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  Admin Login
-                </a>
-              </p>
-            </div>
+            </Suspense>
+            <p className="text-center text-xs text-muted-foreground">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/signup"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Sign up
+              </Link>
+            </p>
           </div>
         </div>
       </section>

@@ -1,9 +1,8 @@
-import { Bell, Info } from "lucide-react"
+import { Bell } from "lucide-react"
 import Link from "next/link"
 
 import { DashboardThemeToggle } from "@/components/dashboard/theme-toggle"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { DASHBOARD_TOP_NAV } from "@/constants/dashboard"
 
 export function DashboardTopNav() {
